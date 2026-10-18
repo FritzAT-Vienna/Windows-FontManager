@@ -3,8 +3,8 @@ program FontManager;
 uses
   Vcl.Forms,
   System.SysUtils,
-  FM.FontEngine in 'H:\Dokumente\Embarcadero\Meins\FM-Units\FM.FontEngine.pas',
-  U_FM_Main in 'U_FM_Main.pas' {Form1};
+  U_FM_Main in 'U_FM_Main.pas' {Form1},
+  FM.FontEngine in 'FM.FontEngine.pas';
 
 {$R *.res}
 

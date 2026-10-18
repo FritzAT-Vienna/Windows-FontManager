@@ -11,13 +11,18 @@ type
 
 type
   TFontEngine = class
+
   private
     // Interne Hilfsmethode zur Typ-Erkennung
-    class procedure GetFontProperties(const FontName: string; var IsMono, IsBitmap: Boolean);
+    class procedure GetFontProperties(const FontName: string;
+                                      var IsMono, IsBitmap: Boolean);
     class function GetInternalList: TStringList;
+
   public
     // Erweiterte GetFonts-Methode mit Filter-Parametern
-    class procedure GetFontsFiltered(TargetList: TStrings; const SearchText: string; FilterType: TFontFilterType);
+    class procedure GetFontsFiltered(TargetList: TStrings;
+                                     const SearchText: string;
+                                     FilterType: TFontFilterType);
 
     // Wichtige System-Fonts
     class function IsSystemProtectedFont(const FontName: string): Boolean;
@@ -54,7 +59,9 @@ var
 
 { TFontEngine }
 
-class procedure TFontEngine.GetFontsFiltered(TargetList: TStrings; const SearchText: string; FilterType: TFontFilterType);
+class procedure TFontEngine.GetFontsFiltered(TargetList: TStrings;
+                                             const SearchText: string;
+                                             FilterType: TFontFilterType);
 var
   I: Integer;
   FontName, UpperSearch: string;
@@ -64,22 +71,21 @@ begin
   TargetList.BeginUpdate;
   try
     TargetList.Clear;
-    SourceList := GetFonts; // Hol die ungefilterte Master-Liste aus dem Triebwerk
+    SourceList := GetFonts; // Hol die ungefilterte Master-Liste aus der Engine
     UpperSearch := UpperCase(Trim(SearchText));
 
     for I := 0 to SourceList.Count - 1 do
     begin
       FontName := SourceList[I];
 
-      // 1. Suche-Filter: Wenn ein Suchtext da ist, muss er im Namen vorkommen
+      // 1: Suche-Filter: Wenn ein Suchtext da ist, muss er im Namen vorkommen
       if (UpperSearch <> '') and (Pos(UpperSearch, UpperCase(FontName)) <> 1) then
         Continue;
 
-      // 2. Anzeige-Filter (Monospace / Rasterschriften)
+      // 2: Anzeige-Filter (Monospace / Rasterschriften)
       if FilterType <> ftAll then
       begin
         GetFontProperties(FontName, IsMono, IsBitmap);
-
         if (FilterType = ftMonospace) and not IsMono then Continue;
         if (FilterType = ftBitmap) and not IsBitmap then Continue;
       end;
@@ -92,7 +98,8 @@ begin
   end;
 end;
 
-class procedure TFontEngine.GetFontProperties(const FontName: string; var IsMono, IsBitmap: Boolean);
+class procedure TFontEngine.GetFontProperties(const FontName: string;
+                                              var IsMono, IsBitmap: Boolean);
 var
   DC: HDC;
   LogFont: TLogFont;
@@ -105,7 +112,7 @@ begin
   DC := GetDC(0);
   try
     FillChar(LogFont, SizeOf(LogFont), 0);
-    // Wir nutzen hier deine funktionierende GDI-Namenshintertür!
+    // Wir nutzen hier funktionierende GDI-Namenshintertür!
     StrPLCopy(LogFont.lfFaceName, GetFullFontNameFromSystem(FontName), LF_FACESIZE - 1);
 
     FontHandle := CreateFontIndirect(LogFont);
@@ -135,7 +142,7 @@ const
     'Arial', 'Calibri', 'Cambria', 'Consolas', 'Courier New', // Office & Terminal
     'Times New Roman', 'MS Sans Serif', 'MS Serif', 'Marlett',// Windows Legacy
     'Malgun Gothic', 'Microsoft YaHei', 'Microsoft JhengHei', // Asiatische Sys.-Schriften
-    'Fixedsys' // Dein Editor-Standard-Font
+    'Fixedsys'                                                // Editor-Standard-Font
   );
 var
   I: Integer;
@@ -146,7 +153,8 @@ begin
 
   for I := Low(BLACKLIST) to High(BLACKLIST) do
   begin
-    // Prüft, ob der Name mit einem geschützten Begriff beginnt (z.B. "Segoe UI Semibold" -> geschützt)
+    // Prüft, ob der Name mit einem geschützten Begriff
+    // beginnt (z.B. "Segoe UI Semibold" -> geschützt)
     if Pos(UpperCase(BLACKLIST[I]), UpperFontName) > 0 then
     begin
       Result := True;
@@ -155,10 +163,8 @@ begin
   end;
 end;
 
-/// <summary>
-/// Singleton-Verwalter für den internen StringList-Speicher.
-/// Preventiert Zirkelbezüge beim Start.
-/// </summary>
+// Singleton-Verwalter für den internen StringList-Speicher.
+// Preventiert Zirkelbezüge beim Start.
 class function TFontEngine.GetInternalList: TStringList;
 begin
   if FFontList = nil then
@@ -169,9 +175,7 @@ begin
   Result := FFontList;
 end;
 
-/// <summary>
-/// Liest alle installierten System-Schriftarten über die VCL frisch aus.
-/// </summary>
+// Liest alle installierten System-Schriftarten über die VCL frisch aus.
 class procedure TFontEngine.RefreshFonts;
 var
   I: Integer;
@@ -195,10 +199,8 @@ begin
   Result := GetInternalList;
 end;
 
-/// <summary>
-/// Verwaltet die permanente Installation: Prüft auf Dubletten und
-/// delegiert an den Admin-Prozess.
-/// </summary>
+// Verwaltet die permanente Installation:
+// Prüft auf Dubletten und delegiert an den Admin-Prozess.
 class function TFontEngine.InstallFontFamily(const FormHandle: HWND;
                                              const FontFilePath:
                                              string; out FontName: string): Boolean;
@@ -223,10 +225,8 @@ begin
   end;
 end;
 
-/// <summary>
-/// Orchestriert die Deinstallation: Hebt lokale GDI-Sperren auf und
-/// startet die Admin-Löschung.
-/// </summary>
+// Deinstallation: Hebt lokale GDI-Sperren auf und
+// startet die Admin-Löschung.
 class function TFontEngine.UninstallFontFamily(const FormHandle: HWND;
                                                const FontNameFromList: string): Boolean;
 var
@@ -248,7 +248,7 @@ begin
   else
     SuchMaske := FontNameFromList;
 
-  // Zugehörige .ttf-Datei auf der Festplatte via Wildcard ermitteln
+  // .ttf-Datei auf der Festplatte via Wildcard ermitteln
   GefundeneDatei := '';
   if FindFirst(FontsFolder + SuchMaske + '*.ttf', faAnyFile, SR) = 0 then
   begin
@@ -267,7 +267,7 @@ begin
     RemoveFontResource(PChar(FullFontPath));
     SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
 
-    // Admin-Löschung mit dem präzisen Dateinamen aufrufen
+    // Admin-Löschung mit dem Dateinamen aufrufen
     if RunAsAdmin(FormHandle, '--uninstall', GefundeneDatei) then
     begin
       RefreshFonts;
@@ -289,9 +289,7 @@ begin
   end;
 end;
 
-/// <summary>
-/// Gibt den vollständigen Fontnamen zurück
-/// </summary>
+// Gibt den vollständigen Fontnamen zurück
 class function TFontEngine.GetFullFontNameFromSystem(const TruncatedName: string): string;
 var
   DC: HDC;
@@ -301,32 +299,32 @@ var
 begin
   Result := '';
 
-  // 1. Einen unsichtbaren Grafik-Kontext von Windows anfordern
+  // 1: Einen unsichtbaren Grafik-Kontext von Windows anfordern
   DC := GetDC(0);
   if DC <> 0 then
   begin
     try
-      // 2. Die Windows-Schriftartenstruktur mit dem abgeschnittenen Namen füttern
+      // 2: Die Windows-Schriftartenstruktur mit dem abgeschnittenen Namen füttern
       ZeroMemory(@LogFont, SizeOf(TLogFont));
       LogFont.lfCharSet := DEFAULT_CHARSET;
 
       // Kopiert den Text sicher hinein (maximal 31 Zeichen)
       StrPLCopy(LogFont.lfFaceName, TruncatedName, LF_FACESIZE - 1);
 
-      // 3. Den Font im Windows-Speicher erzeugen und aktivieren
+      // 3: Den Font im Windows-Speicher erzeugen und aktivieren
       HFnt := CreateFontIndirect(LogFont);
       if HFnt <> 0 then
       begin
         HOldFnt := SelectObject(DC, HFnt);
         try
-          // 4. DER CLOU: Wir bitten Windows, uns den ungeschnittenen Namen in den Puffer zu schreiben!
+          // 4: Windows soll den ungeschnittenen Namen in den Puffer zu schreiben!
           ZeroMemory(@Buffer, SizeOf(Buffer));
           if GetTextFace(DC, Length(Buffer), Buffer) > 0 then
           begin
-            Result := string(Buffer); // Liefert die volle Länge (z. B. "Bitcount Ink ExtraBold Open Default")
+            Result := string(Buffer);
           end;
         finally
-          // 5. Speicher im System sauber freigeben
+          // 5: Speicher im System freigeben
           SelectObject(DC, HOldFnt);
           DeleteObject(HFnt);
         end;
@@ -342,10 +340,8 @@ begin
 end;
 
 
-/// <summary>
-/// Extrahiert den ungeschnittenen Familiennamen mittels nativer,
-/// flacher Windows-GDI+-Schnittstellen.
-/// </summary>
+// Extrahiert den ungeschnittenen Familiennamen mittels nativer,
+// flacher Windows-GDI+-Schnittstellen.
 class function TFontEngine.GetFontFamilyNameGDIP(const FontFilePath: string): string;
 var
   NativeCollection: GpFontCollection;
@@ -396,9 +392,7 @@ begin
     Result := ChangeFileExt(ExtractFileName(FontFilePath), '');
 end;
 
-/// <summary>
-/// Gibt den Pfad und Dateinamen von FontFileNameFromList zurück (c:\windows\fonts\*.*)
-/// </summary>
+// Gibt den Pfad und Dateinamen von FontFileNameFromList zurück (c:\windows\fonts\*.*)
 class function TFontEngine.GetExactFontFileName(const FontNameFromList: string): string;
 var
   FontsFolder, SuchMaske: string;
@@ -407,17 +401,17 @@ begin
   Result := '';
   FontsFolder := IncludeTrailingPathDelimiter(FM.SysUtils.GetWindowsFontsPath);
 
-  // 1. Wir holen uns das erste Wort (z. B. "Bitcount")
+  // 1: Wir holen uns das erste Wort (z. B. "Bitcount")
   if Pos(' ', FontNameFromList) > 0 then
     SuchMaske := Copy(FontNameFromList, 1, Pos(' ', FontNameFromList) - 1)
   else
     SuchMaske := FontNameFromList;
 
-  // 2. Den Ordner mit dem Sternchen durchsuchen (entspricht exakt "dir bi*.* /b" im CMD)
+  // 2: Ordner mit * durchsuchen (entspricht "dir bi*.* /b" im CMD)
   if FindFirst(FontsFolder + SuchMaske + '*.ttf', faAnyFile, SR) = 0 then
   begin
     try
-      // Treffer! Windows liefert uns das riesige "BitcountInk-VariableFont..." zurück
+      // Windows liefert uns das riesige "BitcountInk-VariableFont..." zurück
       Result := SR.Name;
     finally
       FindClose(SR);
@@ -426,10 +420,8 @@ begin
 end;
 
 
-/// <summary>
-/// Ruft sich selbst unsichtbar als Administrator auf (UAC Elevation)
-/// und wartet blockierungsfrei.
-/// </summary>
+// Ruft sich selbst unsichtbar als Administrator auf (UAC Elevation)
+// und wartet blockierungsfrei.
 class function TFontEngine.RunAsAdmin(const FormHandle: HWND;
                                       const Param, Argument: string): Boolean;
 var
@@ -449,7 +441,7 @@ begin
   if ShellExecuteEx(@Sei) then
   begin
     repeat
-      // Kleine 50ms Warteschritte verhindern einen Deadlock beim WM_FONTCHANGE Broadcast
+      // 50ms Warteschritte verhindern einen Deadlock beim WM_FONTCHANGE Broadcast
       WaitResult := WaitForSingleObject(Sei.hProcess, 50);
       Application.ProcessMessages;
     until WaitResult <> WAIT_TIMEOUT;
@@ -460,9 +452,7 @@ begin
   end;
 end;
 
-/// <summary>
-/// Löst GDI-Sperren einer Datei über die Suchmaske des ersten Wortes auf.
-/// </summary>
+// Löst GDI-Sperren einer Datei über die Suchmaske des ersten Wortes auf.
 class function TFontEngine.TryReleaseFontFile(const FontName: string): Boolean;
 var
   FontsFolder, SuchMaske: string;
@@ -496,10 +486,8 @@ begin
   end;
 end;
 
-/// <summary>
-/// Administrative Installation:
-/// Kopiert die Datei ins System und setzt den HKLM-Registryeintrag.
-/// </summary>
+// Administrative Installation:
+// Kopiert die Datei ins System und setzt den HKLM-Registryeintrag.
 class function TFontEngine.SilentInstall(const SourcePath: string): Boolean;
 var
   FontsFolder, DestPath, RegName: string;
@@ -545,10 +533,8 @@ begin
    end;
 end;
 
-///
-/// Administrative Deinstallation:
-/// Tilgt die Datei physisch und bereinigt HKLM und HKCU über Kreuz.
-///
+// Administrative Deinstallation:
+// Entfernt die Datei physisch und bereinigt HKLM und HKCU.
 class function TFontEngine.SilentUninstall(const RegistryFontName: string): Boolean;
 var
   FontsFolder, FullPath: string;
@@ -557,14 +543,13 @@ var
   I: Integer;
   DateiGeloescht, RegGeloescht: Boolean;
 begin
-  //Result := False;
   DateiGeloescht := False;
   RegGeloescht := False;
   try
     FontsFolder := IncludeTrailingPathDelimiter(FM.SysUtils.GetWindowsFontsPath);
     FullPath := FontsFolder + RegistryFontName;
 
-    // 1. Physisches Löschen der unblockierten Datei von der Festplatte
+    // 1: Physisches Löschen der unblockierten Datei von der Festplatte
     if FileExists(FullPath) then
     begin
       RemoveFontResource(PChar(FullPath));
@@ -575,7 +560,8 @@ begin
     Reg := TRegistry.Create(KEY_ALL_ACCESS);
     try
 
-      // 2A. Systemweite Registry-Säuberung (HKEY_LOCAL_MACHINE)
+      // 2A:
+      // Systemweite Registry-Säuberung (HKEY_LOCAL_MACHINE)
       Reg.RootKey := HKEY_LOCAL_MACHINE;
       if Reg.OpenKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts', False) then
       begin
@@ -595,7 +581,8 @@ begin
         end;
       end;
 
-      // 2B. Benutzerspezifische Registry-Säuberung (HKEY_CURRENT_USER für Win10/11 User-Fonts)
+      // 2B:
+      // Benutzerspezifische Registry-Säuberung (HKEY_CURRENT_USER Win10/11 User-Fonts)
       Reg.RootKey := HKEY_CURRENT_USER;
       if Reg.OpenKey('Software\Microsoft\Windows NT\CurrentVersion\Fonts', False) then
       begin
@@ -628,7 +615,7 @@ end;
 
 initialization
 var StartupInput: TGdiplusStartupInput;
-  // GDI+-Sitzung für die Anwendungs-GUI starten
+  // GDI+ - Sitzung für die Anwendungs-GUI starten
   StartupInput.GdiplusVersion := 1;
   StartupInput.DebugEventCallback := nil;
   StartupInput.SuppressBackgroundThread := False;
@@ -636,11 +623,11 @@ var StartupInput: TGdiplusStartupInput;
   GdiplusStartup(GdiplusToken, @StartupInput, nil);
 
 finalization
-  // GDI+-Ressourcen freigeben
+  // GDI+ - Ressourcen freigeben
   if GdiplusToken <> 0 then
     GdiplusShutdown(GdiplusToken);
 
-  // Automatische Speicherentlastung der StringList beim Beenden der App
+  // StringList-Speicher freigeben
   if FFontList <> nil then
     FFontList.Free;
 end.

@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, Winapi.ShlObj,
-  System.SysUtils, System.Variants, System.Classes, System.UITypes,
+  System.SysUtils, System.Variants, System.Classes, System.UITypes, System.IniFiles,
   System.Win.Registry, System.IOUtils, System.Generics.Collections,
   Vcl.ClipBrd, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.Menus, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Grids, Vcl.ComCtrls,
@@ -62,10 +62,13 @@ type
     procedure MenuItemClick(Sender: TObject);
     procedure CbFontFilterChange(Sender: TObject);
     procedure EdSearchChange(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
 
   private const
     CR = sLineBreak;
   private
+    procedure ReadIniFile;
+    procedure WriteIniFile;
     procedure UpdateFontDisplay;
     procedure WMAfterShow(var Msg: TMessage); message WM_AFTER_SHOW;
     procedure ShowFontTable(const AFontName: string;
@@ -82,54 +85,17 @@ implementation
 Uses FM.SysUtils;
 {$R *.dfm}
 
-// Zeichnet Items
-procedure TForm1.LBFontsDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
-var
-  FontName: string;
-begin
-  if Index < 0 then Exit;
-  FontName := LBFonts.Items[Index];
-
-  with LBFonts.Canvas do
-  begin
-    // 1: HINTERGRUND DIREKT ZEICHNEN (Zelle vorbereiten)
-    if odSelected in State then
-    begin
-      Brush.Color := clHighlight;
-      Font.Color := clHighlightText;
-    end
-    else
-    begin
-      Brush.Color := LBFonts.Color;
-      Font.Color := LBFonts.Font.Color; // Standardmäßig schwarz
-    end;
-
-    // Hintergrund ausmalen
-    FillRect(Rect);
-
-    // 2: SYSTEM-SCHUTZSCHILD PRÜFEN (Stile anpassen)
-    if not (odSelected in State) and TFontEngine.IsSystemProtectedFont(FontName) then
-    begin
-      Font.Color := clGrayText;
-      Font.Style := [fsItalic];
-    end
-    else if not (odSelected in State) then
-    begin
-      Font.Style := [];
-    end;
-
-    // 3: TEXT SCHREIBEN
-    // Berechnet den y-Startpunkt, damit der Text bei 24px Höhe exakt mittig sitzt
-    var TextY := Rect.Top + ((Rect.Height - TextHeight(FontName)) div 2);
-
-    // Text mit dem neuen, zentrierten Y-Wert ausgeben
-    TextOut(Rect.Left + 4, TextY, FontName);
-
-    // 4: FOKUSRAHMEN (Tastatur-Bedienung)
-    if odFocused in State then
-      DrawFocusRect(Rect);
-  end;
-end;
+// Hilfsfunktion - Gibt den Font-Path zurück
+//function GetWindowsFontsPath: string;
+//var
+//  Path: array[0..MAX_PATH] of Char;
+//begin
+//  // Ermittelt den Pfad über die Windows-API
+//  if SUCCEEDED(SHGetFolderPath(0, CSIDL_FONTS, 0, 0, Path)) then
+//    Result := IncludeTrailingPathDelimiter(Path)
+//  else
+//    Result := 'C:\Windows\Fonts\'; // Fallback
+//end;
 
 // Menu-Items
 procedure TForm1.MenuItemClick(Sender: TObject);
@@ -281,9 +247,90 @@ begin
   End;  // Case
 end;
 
-/// <summary>
-/// Synchronisiert die Anzeige mit den Daten aus der Engine.
-/// </summary>
+{$Region ' LbFonts '}
+procedure TForm1.LBFontsClick(Sender: TObject);
+var
+  StartChar, EndChar, Mode: Integer;
+  TruncatedName, FullFontName: string;
+begin
+  if LBFonts.ItemIndex < 0 then Exit;
+
+  // 1: Hole den (evtl. von Windows/VCL abgeschnittenen) Namen aus der Liste
+  TruncatedName := LBFonts.Items[LBFonts.ItemIndex];
+
+  // 2: Hole den unbegrenzten Namen über die DirectWrite/GDI-Hintertür
+  FullFontName := TFontEngine.GetFullFontNameFromSystem(TruncatedName);
+
+  Mode := RgMode.ItemIndex; // 0 = ASCII, 1 = Alle
+
+  case Mode of
+    0: begin StartChar := 0; EndChar := 255; end;
+    1: begin StartChar := $0020; EndChar := $FFFF; end;
+    else
+    begin
+      StartChar := 0; EndChar := 255;
+    end;
+  end;
+
+  // Übergabe des echten Namens an die Matrix-Generierung
+  ShowFontTable(FullFontName,
+                CbCols.Items[CbCols.ItemIndex].ToInteger,
+                CbFontSize.Items[CbFontSize.ItemIndex].ToInteger,
+                StartChar, EndChar, Mode);
+  SG.Col:= 0;
+  SG.Row:= 0;
+end;
+
+// Zeichnet LbFonts-Items
+procedure TForm1.LBFontsDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
+var
+  FontName: string;
+begin
+  if Index < 0 then Exit;
+  FontName := LBFonts.Items[Index];
+
+  with LBFonts.Canvas do
+  begin
+    // 1: HINTERGRUND DIREKT ZEICHNEN (Zelle vorbereiten)
+    if odSelected in State then
+    begin
+      Brush.Color := clHighlight;
+      Font.Color := clHighlightText;
+    end
+    else
+    begin
+      Brush.Color := LBFonts.Color;
+      Font.Color := LBFonts.Font.Color; // Standardmäßig schwarz
+    end;
+
+    // Hintergrund ausmalen
+    FillRect(Rect);
+
+    // 2: SYSTEM-SCHUTZSCHILD PRÜFEN (Stile anpassen)
+    if not (odSelected in State) and TFontEngine.IsSystemProtectedFont(FontName) then
+    begin
+      Font.Color := clGrayText;
+      Font.Style := [fsItalic];
+    end
+    else if not (odSelected in State) then
+    begin
+      Font.Style := [];
+    end;
+
+    // 3: TEXT SCHREIBEN
+    // Berechnet den y-Startpunkt, damit der Text bei 24px Höhe exakt mittig sitzt
+    var TextY := Rect.Top + ((Rect.Height - TextHeight(FontName)) div 2);
+
+    // Text mit dem neuen, zentrierten Y-Wert ausgeben
+    TextOut(Rect.Left + 4, TextY, FontName);
+
+    // 4: FOKUSRAHMEN (Tastatur-Bedienung)
+    if odFocused in State then
+      DrawFocusRect(Rect);
+  end;
+end;
+
+// Synchronisiert die Anzeige (FontListe) mit den Daten aus der Engine.
 procedure TForm1.UpdateFontDisplay;
 var
   I, MaxWidth, ItemWidth: Integer;
@@ -322,63 +369,9 @@ begin
 
   LbFontCount.Caption := LBFonts.Items.Count.ToString + ' Fonts gefunden...';
 end;
+{$EndRegion}
 
-// Gibt den Font-Path zurück
-function GetWindowsFontsPath: string;
-var
-  Path: array[0..MAX_PATH] of Char;
-begin
-  // Ermittelt den Pfad über die Windows-API
-  if SUCCEEDED(SHGetFolderPath(0, CSIDL_FONTS, 0, 0, Path)) then
-    Result := IncludeTrailingPathDelimiter(Path)
-  else
-    Result := 'C:\Windows\Fonts\'; // Fallback
-end;
-
-// Gibt den Dateinamen (z. B. arial.ttf) passend zum gesuchten Font-Namen zurück
-function GetFontFileName(const AFontName: string): string;
-var
-  Reg: TRegistry;
-  ValueNames: TStringList;
-  ValName: string;
-begin
-  Result := '';
-  Reg := TRegistry.Create(KEY_READ);
-  try
-    Reg.RootKey := HKEY_LOCAL_MACHINE;
-    if Reg.OpenKeyReadOnly('SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts') then
-    begin
-      ValueNames := TStringList.Create;
-      try
-        Reg.GetValueNames(ValueNames);
-        for ValName in ValueNames do
-        begin
-          // Der Registry-Schlüssel enthält oft Zusätze wie "(TrueType)"
-          if Pos(UpperCase(AFontName), UpperCase(ValName)) > 0 then
-          begin
-            Result := Reg.ReadString(ValName);
-            Break;
-          end;
-        end;
-      finally
-        ValueNames.Free;
-      end;
-      Reg.CloseKey;
-    end;
-  finally
-    Reg.Free;
-  end;
-end;
-
-// StBar-Text löschen
-procedure TForm1.Timer1Timer(Sender: TObject);
-begin
-  if StBar.Panels[0].Text <> '' then StBar.Panels[0].Text:= '';
-  if StBar.Panels[1].Text <> '' then StBar.Panels[1].Text:= '';
-  Timer1.Enabled:= False;
-end;
-
-
+{$Region ' StringGrid '}
 procedure TForm1.SGDblClick(Sender: TObject);
 var
   CellText: string;
@@ -475,7 +468,7 @@ begin
   end;
 end;
 
-// StringGrid zeichnen
+// Zeichnet StringGrid
 procedure TForm1.ShowFontTable(const AFontName: string;
                                AColCount, AFontSize: Integer;
                                AStartChar, AEndChar: Integer;
@@ -573,41 +566,9 @@ begin
     ValidChars.Free;
   end;
 end;
+{$EndRegion}
 
-
-procedure TForm1.LBFontsClick(Sender: TObject);
-var
-  StartChar, EndChar, Mode: Integer;
-  TruncatedName, FullFontName: string;
-begin
-  if LBFonts.ItemIndex < 0 then Exit;
-
-  // 1: Hole den (evtl. von Windows/VCL abgeschnittenen) Namen aus der Liste
-  TruncatedName := LBFonts.Items[LBFonts.ItemIndex];
-
-  // 2: Hole den unbegrenzten Namen über die DirectWrite/GDI-Hintertür
-  FullFontName := TFontEngine.GetFullFontNameFromSystem(TruncatedName);
-
-  Mode := RgMode.ItemIndex; // 0 = ASCII, 1 = Alle
-
-  case Mode of
-    0: begin StartChar := 0; EndChar := 255; end;
-    1: begin StartChar := $0020; EndChar := $FFFF; end;
-    else
-    begin
-      StartChar := 0; EndChar := 255;
-    end;
-  end;
-
-  // Übergabe des echten Namens an die Matrix-Generierung
-  ShowFontTable(FullFontName,
-                CbCols.Items[CbCols.ItemIndex].ToInteger,
-                CbFontSize.Items[CbFontSize.ItemIndex].ToInteger,
-                StartChar, EndChar, Mode);
-  SG.Col:= 0;
-  SG.Row:= 0;
-end;
-
+{$Region ' Ansicht: FontFilter, Suche, FontSize, ViewMode '}
 // OnChange-Ereignis der ComboBox (Anzeigen: Alle Schriftfamilien...)
 procedure TForm1.CbFontFilterChange(Sender: TObject);
 begin
@@ -620,12 +581,15 @@ begin
   end;
 end;
 
-// StBar einstellen
-procedure TForm1.SetStBar;
+// Das OnChange-Ereignis deines Suche-Eingabefeldes
+procedure TForm1.EdSearchChange(Sender: TObject);
 begin
-  StBar.Panels[2].Width:= 200;  // Fixe breite
-  StBar.Panels[1].Width:= MulDiv(StBar.Width - 200, 50, 100); // 50%
-  StBar.Panels[0].Width:= MulDiv(StBar.Width - 200, 50, 100); // 50%
+  UpdateFontDisplay;
+  if LBFonts.Items.Count > 0 then
+  begin
+    LBFonts.ItemIndex := 0;
+    LBFontsClick(Self);
+  end;
 end;
 
 // FontSize oder Spaltenanzahl wurden geändert
@@ -643,21 +607,98 @@ begin
   else
     LBFontsClick(Self);            // Inhalt des Fonts anzeigen
 end;
+{$EndRegion}
 
-// Das OnChange-Ereignis deines Suche-Eingabefeldes
-procedure TForm1.EdSearchChange(Sender: TObject);
+{$Region ' StBar '}
+// StBar-Text löschen
+procedure TForm1.Timer1Timer(Sender: TObject);
 begin
-  UpdateFontDisplay;
-  if LBFonts.Items.Count > 0 then
+  if StBar.Panels[0].Text <> '' then StBar.Panels[0].Text:= '';
+  if StBar.Panels[1].Text <> '' then StBar.Panels[1].Text:= '';
+  Timer1.Enabled:= False;
+end;
+
+// StBar einstellen
+procedure TForm1.SetStBar;
+begin
+  StBar.Panels[2].Width:= 200;  // Fixe breite
+  StBar.Panels[1].Width:= MulDiv(StBar.Width - 200, 50, 100); // 50%
+  StBar.Panels[0].Width:= MulDiv(StBar.Width - 200, 50, 100); // 50%
+end;
+{$EndRegion}
+
+{$Region ' Create, Show, Resize, Destroy, IniFile '}
+procedure TForm1.FormResize(Sender: TObject);
+begin
+  SetStBar;
+end;
+
+procedure TForm1.WriteIniFile;
+var IniF: TIniFile;
+    FN: String;
+begin
+  FN:= ChangeFileExt(ParamStr(0), '.ini');
+  IniF:= TIniFile.Create(FN);
+  try
+    IniF.WriteInteger('WinPos', 'Left'  , Self.Left);
+    IniF.WriteInteger('WinPos', 'Top'   , Self.Top);
+    IniF.WriteInteger('WinPos', 'Width' , Self.Width);
+    IniF.WriteInteger('WinPos', 'Height', Self.Height);
+
+    IniF.WriteInteger('LastConf', 'FFilter',  CbFontFilter.ItemIndex);
+    IniF.WriteInteger('LastConf', 'Mode',     RgMode.ItemIndex);
+    IniF.WriteBool   ('LastConf', 'ShowUniC', CbShowUnicode.Checked);
+    IniF.WriteInteger('LastConf', 'FSize',    CbFontSize.ItemIndex);
+    IniF.WriteInteger('LastConf', 'Cols',     CbCols.ItemIndex);
+    IniF.WriteInteger('LastConf', 'SelFont',  LBFonts.ItemIndex);
+  finally
+    IniF.Free;
+  end;
+end;
+
+procedure TForm1.ReadInifile;
+var IniF: TIniFile;
+    FN: String;
+begin
+  FN:= ChangeFileExt(ParamStr(0), '.ini');
+  if TFile.Exists(FN) then
   begin
-    LBFonts.ItemIndex := 0;
-    LBFontsClick(Self);
+    IniF:= TIniFile.Create(FN);
+    try
+      Self.Left   := IniF.ReadInteger('WinPos', 'Left', 200);
+      Self.Top    := IniF.ReadInteger('WinPos', 'Top', 200);
+      Self.Width  := IniF.ReadInteger('WinPos', 'Width', 1180);
+      Self.Height := IniF.ReadInteger('WinPos', 'Height', 578);
+
+      CbFontFilter.ItemIndex:= IniF.ReadInteger ('LastConf', 'FFilter', 0);
+      RgMode.ItemIndex      := IniF.ReadInteger ('LastConf', 'Mode', 0);
+      CbShowUnicode.Checked := IniF.ReadBool    ('LastConf', 'ShowUniC', False);
+      CbFontSize.ItemIndex  := IniF.ReadInteger ('LastConf', 'FSize', 14);
+      CbCols.ItemIndex      := IniF.ReadInteger ('LastConf', 'Cols', 0);
+      LBFonts.ItemIndex     := IniF.ReadInteger ('LastConf', 'SelFont', 0);
+    finally
+      IniF.Free;
+    end;
+  end
+  else
+  begin
+    Self.left := (Screen.width - Self.width) div 2;
+    Self.top := (Screen.height - Self.height) div 2;
+
+    // Pfad der Fonds -> CBFontDir
+    CBFontDir.Items.Add(FM.SysUtils.GetWindowsFontsPath);
+    CBFontDir.ItemIndex:= 0;
   end;
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   ReportMemoryLeaksOnShutdown:= True;
+end;
+
+procedure TForm1.FormDestroy(Sender: TObject);
+begin
+  WriteIniFile;
 end;
 
 procedure TForm1.WMAfterShow(var Msg: TMessage);
@@ -672,10 +713,14 @@ begin
   CBFontDir.Items.Add(FM.SysUtils.GetWindowsFontsPath);
   CBFontDir.ItemIndex := 0;
 
+  ReadIniFile;
+
   // 3: Erste Schriftart automatisch selektieren und Matrix zeichnen
   if LBFonts.Items.Count > 0 then
   begin
-    LBFonts.ItemIndex := 0;
+    if LBFonts.ItemIndex <> 0 then
+    else
+      LBFonts.ItemIndex := 0;
     LBFontsClick(Self); // Erste Schriftart direkt in die Matrix laden
   end;
 
@@ -686,11 +731,42 @@ procedure TForm1.FormShow(Sender: TObject);
 begin
   PostMessage(Self.Handle, WM_AFTER_SHOW, 0, 0);
 end;
-
-procedure TForm1.FormResize(Sender: TObject);
-begin
-  SetStBar;
-end;
+{$EndRegion}
 
 end.
 
+
+// Gibt den Dateinamen (z. B. arial.ttf) passend zum gesuchten Font-Namen zurück
+//function GetFontFileName(const AFontName: string): string;
+//var
+//  Reg: TRegistry;
+//  ValueNames: TStringList;
+//  ValName: string;
+//begin
+//  Result := '';
+//  Reg := TRegistry.Create(KEY_READ);
+//  try
+//    Reg.RootKey := HKEY_LOCAL_MACHINE;
+//    if Reg.OpenKeyReadOnly('SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts') then
+//    begin
+//      ValueNames := TStringList.Create;
+//      try
+//        Reg.GetValueNames(ValueNames);
+//        for ValName in ValueNames do
+//        begin
+//          // Der Registry-Schlüssel enthält oft Zusätze wie "(TrueType)"
+//          if Pos(UpperCase(AFontName), UpperCase(ValName)) > 0 then
+//          begin
+//            Result := Reg.ReadString(ValName);
+//            Break;
+//          end;
+//        end;
+//      finally
+//        ValueNames.Free;
+//      end;
+//      Reg.CloseKey;
+//    end;
+//  finally
+//    Reg.Free;
+//  end;
+//end;

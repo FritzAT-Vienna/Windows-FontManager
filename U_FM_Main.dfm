@@ -6,8 +6,8 @@ object Form1: TForm1
   Margins.Right = 5
   Margins.Bottom = 5
   Caption = 'FontViewer'
-  ClientHeight = 657
-  ClientWidth = 1100
+  ClientHeight = 666
+  ClientWidth = 1103
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -694,6 +694,7 @@ object Form1: TForm1
     84B410FF0759019BE289E8CC3C0000000049454E44AE426082}
   Menu = MainMenu1
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnResize = FormResize
   OnShow = FormShow
   PixelsPerInch = 144
@@ -701,8 +702,8 @@ object Form1: TForm1
   object Panel_01: TPanel
     Left = 0
     Top = 0
-    Width = 1100
-    Height = 629
+    Width = 1103
+    Height = 638
     Margins.Left = 5
     Margins.Top = 5
     Margins.Right = 5
@@ -713,23 +714,23 @@ object Form1: TForm1
     TabOrder = 0
     object Splitter1: TSplitter
       Left = 337
-      Top = 60
+      Top = 58
       Width = 6
-      Height = 568
+      Height = 579
       Margins.Left = 5
       Margins.Top = 5
       Margins.Right = 5
       Margins.Bottom = 5
       MinSize = 45
       ExplicitLeft = 338
-      ExplicitTop = 2
-      ExplicitHeight = 625
+      ExplicitTop = 59
+      ExplicitHeight = 577
     end
     object Panel_03: TPanel
       Left = 1
-      Top = 60
+      Top = 58
       Width = 336
-      Height = 568
+      Height = 579
       Margins.Left = 5
       Margins.Top = 5
       Margins.Right = 5
@@ -751,6 +752,8 @@ object Form1: TForm1
         Alignment = taCenter
         Caption = 'LbFontCount'
         Layout = tlCenter
+        ExplicitLeft = 2
+        ExplicitTop = 2
         ExplicitWidth = 103
       end
       object LBFonts: TListBox
@@ -758,7 +761,7 @@ object Form1: TForm1
         Left = 6
         Top = 31
         Width = 324
-        Height = 531
+        Height = 542
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
@@ -773,9 +776,9 @@ object Form1: TForm1
     end
     object Panel_04: TPanel
       Left = 343
-      Top = 60
-      Width = 756
-      Height = 568
+      Top = 58
+      Width = 759
+      Height = 579
       Margins.Left = 5
       Margins.Top = 5
       Margins.Right = 5
@@ -786,8 +789,8 @@ object Form1: TForm1
       object SG: TStringGrid
         Left = 1
         Top = 1
-        Width = 754
-        Height = 436
+        Width = 757
+        Height = 447
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
@@ -804,13 +807,12 @@ object Form1: TForm1
         OnDblClick = SGDblClick
         OnDrawCell = SGDrawCell
         OnKeyDown = SGKeyDown
-        ExplicitHeight = 440
       end
       object Panel_05: TPanel
         AlignWithMargins = True
         Left = 6
-        Top = 442
-        Width = 744
+        Top = 453
+        Width = 747
         Height = 120
         Margins.Left = 5
         Margins.Top = 5
@@ -820,11 +822,8 @@ object Form1: TForm1
         Caption = 'Panel_05'
         ShowCaption = False
         TabOrder = 1
-        ExplicitLeft = 1
-        ExplicitTop = 447
-        ExplicitWidth = 754
         DesignSize = (
-          744
+          747
           120)
         object Label1: TLabel
           Left = 341
@@ -943,8 +942,8 @@ object Form1: TForm1
     object Panel02: TPanel
       Left = 1
       Top = 1
-      Width = 1098
-      Height = 59
+      Width = 1101
+      Height = 57
       Margins.Left = 5
       Margins.Top = 5
       Margins.Right = 5
@@ -965,7 +964,7 @@ object Form1: TForm1
         Caption = 'Anzeigen:'
       end
       object Label4: TLabel
-        Left = 688
+        Left = 689
         Top = 15
         Width = 51
         Height = 25
@@ -979,7 +978,7 @@ object Form1: TForm1
         AlignWithMargins = True
         Left = 6
         Top = 11
-        Width = 334
+        Width = 335
         Height = 33
         Margins.Left = 5
         Margins.Top = 5
@@ -991,9 +990,9 @@ object Form1: TForm1
       end
       object CbFontFilter: TComboBox
         AlignWithMargins = True
-        Left = 451
+        Left = 452
         Top = 11
-        Width = 218
+        Width = 217
         Height = 33
         Margins.Left = 5
         Margins.Top = 5
@@ -1013,7 +1012,7 @@ object Form1: TForm1
         AlignWithMargins = True
         Left = 749
         Top = 11
-        Width = 107
+        Width = 108
         Height = 33
         Margins.Left = 5
         Margins.Top = 5
@@ -1026,8 +1025,8 @@ object Form1: TForm1
   end
   object StBar: TStatusBar
     Left = 0
-    Top = 629
-    Width = 1100
+    Top = 638
+    Width = 1103
     Height = 28
     Margins.Left = 5
     Margins.Top = 5
